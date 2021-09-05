@@ -12,16 +12,15 @@ from random import random
 from math import sin, fabs, ceil, log10
 
 # Desarrollo de funciones
-def float_to_bin(population, n_bits):
-	''' Agrega el valor de la conversion de x a binario
-		para cada individuo de la poblacion '''
-	for individual in population:
-		individual['binary'] = bin(int(str(individual['x']).split('.')[1])).lstrip('0b')
-		n = len(individual['binary'])
-		if n < n_bits:
-			individual['binary'] = ('0' * (n_bits - n)) + individual['binary']
+def float_to_bin(x, n_bits):
+	''' Retorna el equivalente en binario de x '''
+	binary = bin(int(str(x).split('.')[1])).lstrip('0b')
+	n = len(binary)
+	if n < n_bits:
+		binary = ('0' * (n_bits - n)) + binary
+	return binary
 
-def create_population(n):
+def create_population(n, n_bits):
 	''' Genera una poblacion de N individuos unicos '''
 	population = []
 	i = 0
@@ -31,7 +30,8 @@ def create_population(n):
 			population.index(x)
 			continue
 		except:
-			population.append({'x': round(x, 7)})
+			x = round(x, 7)
+			population.append({'x': x, 'binary': float_to_bin(x, n_bits)})
 			i += 1
 
 	return population
@@ -57,7 +57,7 @@ def show_progress(population, cases, generation = 0):
 	if generation:
 		out.write('\n')
 	out.write('GENERACION ACTUAL: {}\n'.format(generation + 1))
-	out.write('Mejor adaptacion: {:7f}, Adaptacion promedio: {:7f}\n\n'.format(population[0].get('fadap'), add_adaptations(population) / len(population)))
+	out.write('Mejor adaptacion: {}, Adaptacion promedio: {}\n\n'.format(population[0].get('fadap'), round(add_adaptations(population) / len(population), 7)))
 	out.write('No\tCromosoma\t\t\t\t\tValor real\tAdaptacion\n')
 	i = 0
 	for individual in population:
@@ -101,6 +101,46 @@ def roulette_wheel(population):
 			break
 	return p1, p2
 
+def modification_point(prob, n_bits):
+	''' Rretorna el punto de modificacion
+		para el cruce y la mutacion '''
+	i = 1
+	found = False
+	while i <= n_bits and not found:
+		if random() <= prob:
+			found = True
+		else:
+			i += 1
+
+	return i
+
+def crossing(parent1, parent2, pc, n_bits):
+	''' Retorna 2 hijos de dos individuos '''
+	point = modification_point(pc, n_bits)
+	h1 = round(random(), 7) << point | parent1 >> point
+	h1 = h1 << point | parent2 >> point
+	h2 = round(random(), 7) >> point | parent1 << point
+	h2 = h2 >> point | parent2 << point
+	return h1, h2
+
+def mutation(p1, p2, pm, n_bits):
+	''' Retorna la mutacion de p1 y p2 '''
+	h1, h2 = p1, p2
+	point = modification_point(pm, n_bits)
+	binary_h1 = float_to_bin(h1, n_bits)
+	binary_h2 = float_to_bin(h2, n_bits)
+
+	if binary_h1[point - 1] == '0':
+		h1 = h1 | 1 << point
+	else:
+		h1 = h1 ^ 1 << point
+
+	if binary_h2[point - 1] == '0':
+		h2 = h2 | 1 << point
+	else:
+		h2 = h2 ^ 1 << point
+	return h1, h2
+
 def main():
 	''' Cuerpo principal '''
 
@@ -123,9 +163,9 @@ def main():
 		gap = int(test[4])
 
 		# Inicializar la poblacion
-		population = create_population(n)
+		cont_new_individuals = n * gap // 100
+		population = create_population(n, n_bits)
 		evaluate(population)
-		float_to_bin(population, n_bits)
 
 		# Ordenando en forma decreciente
 		population.sort(key = lambda individual: individual['fadap'], reverse = True)
@@ -136,9 +176,7 @@ def main():
 		# Recorriendo las generaciones
 		for t in range(generations + 1):
 			# Inicializando la nueva poblacion
-			cont_new_individuals = n * gap / 100
-			decendents = population[:-cont_new_individuals]
-
+			descendants = [{'x': population[i]['x']} for i in range(0, n - cont_new_individuals)]
 			# Generando probabilidades de seleccion
 			selection_probability(population)
 
@@ -147,18 +185,51 @@ def main():
 			while i < cont_new_individuals:
 				# Seleccionando los padres
 				p1, p2 = roulette_wheel(population)
-				pass
+				elements = False
 
-			evaluate(decendents)
+				# Cruce
+				if round(random(), 7) < pc:
+					elements = True
+					h1, h2 = crossing(p1, p2, pc, n_bits)
+				else:
+					# Mutacion
+					if round(random(),7) < pm:
+						elements = True
+						print('Muto')
+						h1, h2 = mutation(p1, p2, pm, n_bits)
 
-			# Ordenando en forma decreciente
-			decendents.sort(key = lambda individual: individual['fadap'], reverse = True)
-			float_to_bin(decendents, n_bits)
+				# Aagregando a los nuevos individuos
+				if elements:
+					try:
+						descendants.index(h1)
+						descendants.index(h2)
+						continue
+					except:
+						i += 2
+						if i < cont_new_individuals:
+							# Agrego los dos hijos
+							descendants.extend([{'x': h1}, {'x': h2}])
+						else:
+							# Agrego un solo hijo
+							descendants.append({'x': h1})
+							i -= 1
+				else:
+					continue
+
+			# Evaluando la poblacion descendiente y creando su correspondiente binario
+			for individual in descendants:
+				individual['binary'] = float_to_bin(individual['x'], n_bits)
+
+			evaluate(descendants)
+
+			# Ordenando la poblacion descendientes en forma decreciente
+			descendants.sort(key = lambda individual: individual['fadap'], reverse = True)
+			float_to_bin(descendants, n_bits)
 
 			# Mostrar avances
-			show_progress(decendents, cases, t)
-			population = decendents[:]
-			decendents.clear()
+			show_progress(descendants, cases, t)
+			population = descendants[:]
+			descendants.clear()
 
 	# Salida
 	input.close
