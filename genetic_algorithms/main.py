@@ -118,13 +118,15 @@ def decoding(num, n_bits):
 	return round(1 / (num / (2 ** n_bits - 1)), 7)
 
 def scientific_notation(num):
+	''' Convierte el numero real de formato
+		x.xxe-0x a 0.0000xxx '''
 	if (str(num).find('e') != -1):
 		num = format(float(num), '.7f')
 	return num
 
 def modification_point(prob, n_bits):
 	''' Retorna el punto de modificacion
-		para el cruce y la mutacion '''
+		de bits para el cruce y la mutacion '''
 	while True:
 		i = 1
 		found = False
@@ -204,7 +206,6 @@ def main():
 		evaluate(population)
 
 		# Ordenando en forma decreciente
-		#population.sort(key = lambda individual: individual['fadap'], reverse = True)
 		population.sort(key = lambda individual: float(individual['fadap']), reverse = True)
 
 		# Mostrar avances
@@ -253,10 +254,11 @@ def main():
 				else:
 					continue
 
-			# Evaluando la poblacion descendiente y creando su correspondiente binario
+			# Creando el equivalente en binario para cada individuo de los descendientes
 			for individual in descendants:
 				individual['binary'] = float_to_bin(individual['x'], n_bits)
 
+			# Evaluando la poblacion descendiente
 			evaluate(descendants)
 
 			# Ordenando la poblacion descendientes en forma decreciente
