@@ -1,0 +1,6 @@
+5
+1 0.9 Lotes 1000
+1 0.5 Lotes 40
+1 0.3 Lotes 70
+1 0.1 Lotes 10
+1 0.1 Lotes 80
